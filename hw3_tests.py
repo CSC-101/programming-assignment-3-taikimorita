@@ -1,7 +1,8 @@
 import data
 import build_data
 import unittest
-
+from hw3 import *
+from typing import List
 
 # These two values are defined to support testing below. The
 # data within these structures should not be modified. Doing
@@ -180,19 +181,112 @@ class TestCases(unittest.TestCase):
 
     # Part 1
     # test population_total
+    def test_population_total(self):
+        expected_population = sum(county.population['2014 Population'] for county in reduced_data)
+        result = population_total(reduced_data)
+        self.assertEqual(result, expected_population)
+
+    def test_population_total_empty(self):
+        result = population_total([])
+        self.assertEqual(result, 0)
 
     # Part 2
     # test filter_by_state
+    def test_filter_by_state(self):
+        state = 'CA'
+        filtered_counties = filter_by_state(reduced_data, state)
+        self.assertTrue(all(county.state == state for county in filtered_counties))
+        self.assertEqual(len(filtered_counties), 2)
+
+    def test_filter_by_state_no_results(self):
+        state = 'XY'
+        filtered_counties = filter_by_state(reduced_data, state)
+        self.assertEqual(filtered_counties, [])
 
     # Part 3
     # test population_by_education
     # test population_by_ethnicity
     # test population_below_poverty_level
+    def test_population_by_education(self):
+        education_key = "Bachelor's Degree or Higher"
+        expected_population = sum(
+            county.population['2014 Population'] * (county.education.get(education_key, 0) / 100)
+            for county in reduced_data
+        )
+        result = population_by_education(reduced_data, education_key)
+        self.assertEqual(result, expected_population)
+
+    def test_population_by_education_no_data(self):
+        education_key = "PhD"
+        result = population_by_education(reduced_data, education_key)
+        self.assertEqual(result, 0)
+
+    def test_population_by_ethnicity(self):
+        ethnicity_key = "White Alone"
+        expected_population = sum(
+            county.population['2014 Population'] * (county.ethnicities.get(ethnicity_key, 0) / 100)
+            for county in reduced_data
+        )
+        result = population_by_ethnicity(reduced_data, ethnicity_key)
+        self.assertEqual(result, expected_population)
+
+    def test_population_by_ethnicity_no_data(self):
+        ethnicity_key = "Non-Existent Ethnicity"
+        result = population_by_ethnicity(reduced_data, ethnicity_key)
+        self.assertEqual(result, 0)
+
+    def test_population_below_poverty_level(self):
+        expected_population = sum(
+            county.population['2014 Population'] * (county.income['Persons Below Poverty Level'] / 100)
+            for county in reduced_data
+        )
+        result = population_below_poverty_level(reduced_data)
+        self.assertEqual(result, expected_population)
+
+    def test_population_below_poverty_level_no_data(self):
+        result = population_below_poverty_level([])
+        self.assertEqual(result, 0)
 
     # Part 4
     # test percent_by_education
     # test percent_by_ethnicity
     # test percent_below_poverty_level
+    def test_percent_by_education(self):
+        education_key = "Bachelor's Degree or Higher"
+        total_population = population_total(reduced_data)
+        education_population = population_by_education(reduced_data, education_key)
+        expected_percent = (education_population / total_population) * 100 if total_population > 0 else 0
+        result = percent_by_education(reduced_data, education_key)
+        self.assertEqual(result, expected_percent)
+
+    def test_percent_by_education_no_population(self):
+        education_key = "Bachelor's Degree or Higher"
+        result = percent_by_education([], education_key)
+        self.assertEqual(result, 0)
+
+    def test_percent_by_ethnicity(self):
+        ethnicity_key = "White Alone"
+        total_population = population_total(reduced_data)
+        ethnicity_population = population_by_ethnicity(reduced_data, ethnicity_key)
+        expected_percent = (ethnicity_population / total_population) * 100 if total_population > 0 else 0
+        result = percent_by_ethnicity(reduced_data, ethnicity_key)
+        self.assertEqual(result, expected_percent)
+
+    def test_percent_by_ethnicity_no_population(self):
+        ethnicity_key = "Black Alone"
+        result = percent_by_ethnicity([], ethnicity_key)
+        self.assertEqual(result, 0)
+
+    def test_percent_below_poverty_level(self):
+        total_population = population_total(reduced_data)
+        poverty_population = population_below_poverty_level(reduced_data)
+        expected_percent = (poverty_population / total_population) * 100 if total_population > 0 else 0
+        result = percent_below_poverty_level(reduced_data)
+        self.assertEqual(result, expected_percent)
+
+    def test_percent_below_poverty_level_no_data(self):
+        result = percent_below_poverty_level([])
+        self.assertEqual(result, 0)
 
     # Part 5
     # test education_greater_than
@@ -201,8 +295,70 @@ class TestCases(unittest.TestCase):
     # test ethnicity_less_than
     # test below_poverty_level_greater_than
     # test below_poverty_level_less_than
+    def test_education_greater_than(self):
+        education_key = "Bachelor's Degree or Higher"
+        threshold = 20.0
+        filtered_counties = education_greater_than(reduced_data, education_key, threshold)
+        self.assertTrue(all(county.education.get(education_key, 0) > threshold for county in filtered_counties))
 
+    def test_education_greater_than_no_results(self):
+        education_key = "Bachelor's Degree or Higher"
+        threshold = 100.0
+        filtered_counties = education_greater_than(reduced_data, education_key, threshold)
+        self.assertEqual(filtered_counties, [])
 
+    def test_education_less_than(self):
+        education_key = "Bachelor's Degree or Higher"
+        threshold = 20.0
+        filtered_counties = education_less_than(reduced_data, education_key, threshold)
+        self.assertTrue(all(county.education.get(education_key, 0) < threshold for county in filtered_counties))
+
+    def test_ethnicity_less_than_no_results(self):
+        ethnicity_key = "White Alone"
+        threshold = 0.0
+        filtered_counties = ethnicity_less_than(reduced_data, ethnicity_key, threshold)
+        self.assertEqual(filtered_counties, [])
+
+    def test_ethnicity_greater_than(self):
+        ethnicity_key = "White Alone"
+        threshold = 75.0
+        filtered_counties = ethnicity_greater_than(reduced_data, ethnicity_key, threshold)
+        self.assertTrue(all(county.ethnicities.get(ethnicity_key, 0) > threshold for county in filtered_counties))
+
+    def test_below_poverty_level_greater_than_no_results(self):
+        threshold = 100.0
+        filtered_counties = below_poverty_level_greater_than(reduced_data, threshold)
+        self.assertEqual(filtered_counties, [])
+
+    def test_ethnicity_less_than(self):
+        ethnicity_key = "White Alone"
+        threshold = 75.0
+        filtered_counties = ethnicity_less_than(reduced_data, ethnicity_key, threshold)
+        self.assertTrue(all(county.ethnicities.get(ethnicity_key, 0) < threshold for county in filtered_counties))
+
+    def test_ethnicity_less_than_no_results(self):
+        ethnicity_key = "White Alone"
+        threshold = 0.0
+        filtered_counties = ethnicity_less_than(reduced_data, ethnicity_key, threshold)
+        self.assertEqual(filtered_counties, [])
+
+    def test_below_poverty_level_greater_than(self):
+        threshold = 20.0
+        filtered_counties = below_poverty_level_greater_than(reduced_data, threshold)
+        self.assertTrue(all(county.income.get('Persons Below Poverty Level', 0) > threshold for county in filtered_counties))
+
+    def test_below_poverty_level_greater_than_no_results(self):
+        threshold = 100.0
+        filtered_counties = below_poverty_level_greater_than(reduced_data, threshold)
+        self.assertEqual(filtered_counties, [])
+
+    def test_below_poverty_level_less_than(self):
+        threshold = 20.0
+        filtered_counties = below_poverty_level_less_than(reduced_data, threshold)
+        self.assertTrue(all(county.income.get('Persons Below Poverty Level', 0) < threshold for county in filtered_counties))
+
+    def test_below_poverty_level_less_than_no_results(self):
+        threshold = 0.0
 
 if __name__ == '__main__':
     unittest.main()
